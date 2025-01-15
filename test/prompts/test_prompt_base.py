@@ -1,16 +1,16 @@
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
-# Licensed under the Apache License, Version 2.0 (the “License”);
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 
 from camel.prompts.base import (
     CodePrompt,
@@ -22,7 +22,6 @@ from camel.prompts.base import (
 
 
 def test_return_prompt_wrapper():
-
     def my_function():
         return "Hello, world!"
 
@@ -33,7 +32,6 @@ def test_return_prompt_wrapper():
 
 
 def test_return_prompt_wrapper_with_tuple():
-
     def my_function():
         return ("Hello, {name}!", "Welcome, {name}!")
 
@@ -48,7 +46,6 @@ def test_return_prompt_wrapper_with_tuple():
 def test_wrap_prompt_functions():
     # Example class for testing
     class MyClass:
-
         def __init__(self, *args, **kwargs):
             pass
 
@@ -86,8 +83,9 @@ def test_text_prompt_format():
     prompt = TextPrompt('Your name and age are: {name}, {age}')
 
     name, age = 'John', 30
-    assert prompt.format(name=name,
-                         age=age) == 'Your name and age are: John, 30'
+    assert (
+        prompt.format(name=name, age=age) == 'Your name and age are: John, 30'
+    )
 
     # Partial formatting
     assert prompt.format(name=name) == 'Your name and age are: John, {age}'
@@ -138,8 +136,9 @@ def test_code_prompt_set_code_type():
 
 def test_code_prompt_execute(monkeypatch):
     monkeypatch.setattr('builtins.input', lambda _: 'Y')
-    code_prompt = CodePrompt("a = 1\nprint('Hello, World!')",
-                             code_type="python")
+    code_prompt = CodePrompt(
+        "a = 1\nprint('Hello, World!')", code_type="python"
+    )
     result = code_prompt.execute()
     assert result == "Hello, World!\n"
 

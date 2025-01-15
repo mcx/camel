@@ -1,16 +1,17 @@
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
-# Licensed under the Apache License, Version 2.0 (the “License”);
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+import logging
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from camel.agents import (
@@ -22,9 +23,13 @@ from camel.agents import (
 from camel.generators import SystemMessageGenerator
 from camel.human import Human
 from camel.messages import BaseMessage
+from camel.models import BaseModelBackend
 from camel.prompts import TextPrompt
 from camel.responses import ChatAgentResponse
-from camel.types import ModelType, RoleType, TaskType
+from camel.types import RoleType, TaskType
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)
 
 
 class RolePlaying:
@@ -48,9 +53,10 @@ class RolePlaying:
             in the loop. (default: :obj:`False`)
         critic_criteria (str, optional): Critic criteria for the critic agent.
             If not specified, set the criteria to improve task performance.
-        model_type (ModelType, optional): Model type that will be used for
-            role playing. If specified, it will override the model in all
-            agents. (default: :obj:`None`)
+        model (BaseModelBackend, optional): The model backend to use for
+            generating responses. If specified, it will override the model in
+            all agents if not specified in agent-specific kwargs. (default:
+            :obj:`OpenAIModel` with `GPT_4O_MINI`)
         task_type (TaskType, optional): The type of task to perform.
             (default: :obj:`TaskType.AI_SOCIETY`)
         assistant_agent_kwargs (Dict, optional): Additional arguments to pass
@@ -84,7 +90,7 @@ class RolePlaying:
         with_task_planner: bool = False,
         with_critic_in_the_loop: bool = False,
         critic_criteria: Optional[str] = None,
-        model_type: Optional[ModelType] = None,
+        model: Optional[BaseModelBackend] = None,
         task_type: TaskType = TaskType.AI_SOCIETY,
         assistant_agent_kwargs: Optional[Dict] = None,
         user_agent_kwargs: Optional[Dict] = None,
@@ -96,10 +102,16 @@ class RolePlaying:
         extend_task_specify_meta_dict: Optional[Dict] = None,
         output_language: Optional[str] = None,
     ) -> None:
+        if model is not None:
+            logger.warning(
+                "Model provided globally is set for all agents if not"
+                " already specified in agent_kwargs."
+            )
+
         self.with_task_specify = with_task_specify
         self.with_task_planner = with_task_planner
         self.with_critic_in_the_loop = with_critic_in_the_loop
-        self.model_type = model_type
+        self.model = model
         self.task_type = task_type
         self.task_prompt = task_prompt
 
@@ -136,8 +148,8 @@ class RolePlaying:
 
         self.assistant_agent: ChatAgent
         self.user_agent: ChatAgent
-        self.assistant_sys_msg: BaseMessage
-        self.user_sys_msg: BaseMessage
+        self.assistant_sys_msg: Optional[BaseMessage]
+        self.user_sys_msg: Optional[BaseMessage]
         self._init_agents(
             init_assistant_sys_msg,
             init_user_sys_msg,
@@ -183,14 +195,17 @@ class RolePlaying:
             task_specify_meta_dict = dict()
             if self.task_type in [TaskType.AI_SOCIETY, TaskType.MISALIGNMENT]:
                 task_specify_meta_dict.update(
-                    dict(assistant_role=assistant_role_name,
-                         user_role=user_role_name))
+                    dict(
+                        assistant_role=assistant_role_name,
+                        user_role=user_role_name,
+                    )
+                )
             task_specify_meta_dict.update(extend_task_specify_meta_dict or {})
-            if self.model_type is not None:
+            if self.model is not None:
                 if task_specify_agent_kwargs is None:
-                    task_specify_agent_kwargs = {}
-                task_specify_agent_kwargs.update(
-                    dict(model_type=self.model_type))
+                    task_specify_agent_kwargs = {'model': self.model}
+                elif 'model' not in task_specify_agent_kwargs:
+                    task_specify_agent_kwargs.update(dict(model=self.model))
             task_specify_agent = TaskSpecifyAgent(
                 task_type=self.task_type,
                 output_language=output_language,
@@ -220,18 +235,19 @@ class RolePlaying:
                 agents. (default: :obj:`None`)
         """
         if self.with_task_planner:
-            if self.model_type is not None:
+            if self.model is not None:
                 if task_planner_agent_kwargs is None:
-                    task_planner_agent_kwargs = {}
-                task_planner_agent_kwargs.update(
-                    dict(model_type=self.model_type))
+                    task_planner_agent_kwargs = {'model': self.model}
+                elif 'model' not in task_planner_agent_kwargs:
+                    task_planner_agent_kwargs.update(dict(model=self.model))
             task_planner_agent = TaskPlannerAgent(
                 output_language=output_language,
                 **(task_planner_agent_kwargs or {}),
             )
             self.planned_task_prompt = task_planner_agent.run(self.task_prompt)
-            self.task_prompt = (f"{self.task_prompt}\n"
-                                f"{self.planned_task_prompt}")
+            self.task_prompt = (
+                f"{self.task_prompt}\n" f"{self.planned_task_prompt}"
+            )
         else:
             self.planned_task_prompt = None
 
@@ -262,21 +278,25 @@ class RolePlaying:
                 message, and a list of system message meta dicts.
         """
         sys_msg_meta_dicts = [dict(task=self.task_prompt) for _ in range(2)]
-        if (extend_sys_msg_meta_dicts is None and self.task_type in [
-                TaskType.AI_SOCIETY,
-                TaskType.MISALIGNMENT,
-        ]):
+        if extend_sys_msg_meta_dicts is None and self.task_type in [
+            TaskType.AI_SOCIETY,
+            TaskType.MISALIGNMENT,
+        ]:
             extend_sys_msg_meta_dicts = [
-                dict(assistant_role=assistant_role_name,
-                     user_role=user_role_name) for _ in range(2)
+                dict(
+                    assistant_role=assistant_role_name,
+                    user_role=user_role_name,
+                )
+                for _ in range(2)
             ]
 
         if extend_sys_msg_meta_dicts is not None:
-            sys_msg_meta_dicts = [{
-                **sys_msg_meta_dict,
-                **extend_sys_msg_meta_dict
-            } for sys_msg_meta_dict, extend_sys_msg_meta_dict in zip(
-                sys_msg_meta_dicts, extend_sys_msg_meta_dicts)]
+            sys_msg_meta_dicts = [
+                {**sys_msg_meta_dict, **extend_sys_msg_meta_dict}
+                for sys_msg_meta_dict, extend_sys_msg_meta_dict in zip(
+                    sys_msg_meta_dicts, extend_sys_msg_meta_dicts
+                )
+            ]
 
         init_assistant_sys_msg, init_user_sys_msg = (
             sys_msg_generator.from_dicts(
@@ -285,7 +305,8 @@ class RolePlaying:
                     (assistant_role_name, RoleType.ASSISTANT),
                     (user_role_name, RoleType.USER),
                 ],
-            ))
+            )
+        )
         return init_assistant_sys_msg, init_user_sys_msg, sys_msg_meta_dicts
 
     def _init_agents(
@@ -310,13 +331,15 @@ class RolePlaying:
             output_language (str, optional): The language to be output by the
                 agents. (default: :obj:`None`)
         """
-        if self.model_type is not None:
+        if self.model is not None:
             if assistant_agent_kwargs is None:
-                assistant_agent_kwargs = {}
-            assistant_agent_kwargs.update(dict(model_type=self.model_type))
+                assistant_agent_kwargs = {'model': self.model}
+            elif 'model' not in assistant_agent_kwargs:
+                assistant_agent_kwargs.update(dict(model=self.model))
             if user_agent_kwargs is None:
-                user_agent_kwargs = {}
-            user_agent_kwargs.update(dict(model_type=self.model_type))
+                user_agent_kwargs = {'model': self.model}
+            elif 'model' not in user_agent_kwargs:
+                user_agent_kwargs.update(dict(model=self.model))
 
         self.assistant_agent = ChatAgent(
             init_assistant_sys_msg,
@@ -360,19 +383,23 @@ class RolePlaying:
             if critic_role_name.lower() == "human":
                 self.critic = Human(**(critic_kwargs or {}))
             else:
-                critic_criteria = (critic_criteria
-                                   or "improving the task performance")
-                critic_msg_meta_dict = dict(critic_role=critic_role_name,
-                                            criteria=critic_criteria,
-                                            **sys_msg_meta_dicts[0])
+                critic_criteria = (
+                    critic_criteria or "improving the task performance"
+                )
+                critic_msg_meta_dict = dict(
+                    critic_role=critic_role_name,
+                    criteria=critic_criteria,
+                    **sys_msg_meta_dicts[0],
+                )
                 self.critic_sys_msg = sys_msg_generator.from_dict(
                     critic_msg_meta_dict,
                     role_tuple=(critic_role_name, RoleType.CRITIC),
                 )
-                if self.model_type is not None:
+                if self.model is not None:
                     if critic_kwargs is None:
-                        critic_kwargs = {}
-                    critic_kwargs.update(dict(model_type=self.model_type))
+                        critic_kwargs = {'model': self.model}
+                    elif 'model' not in critic_kwargs:
+                        critic_kwargs.update(dict(model=self.model))
                 self.critic = CriticAgent(
                     self.critic_sys_msg,
                     **(critic_kwargs or {}),
@@ -398,8 +425,10 @@ class RolePlaying:
         if len(messages) == 0:
             raise ValueError("No messages to process.")
         if len(messages) > 1 and not self.with_critic_in_the_loop:
-            raise ValueError("Got than one message to process. "
-                             f"Num of messages: {len(messages)}.")
+            raise ValueError(
+                "Got than one message to process. "
+                f"Num of messages: {len(messages)}."
+            )
         elif self.with_critic_in_the_loop and self.critic is not None:
             critic_response = self.critic.reduce_step(messages)
             processed_msg = critic_response.msg
@@ -425,12 +454,15 @@ class RolePlaying:
         self.user_agent.reset()
         default_init_msg_content = (
             "Now start to give me instructions one by one. "
-            "Only reply with Instruction and Input.")
+            "Only reply with Instruction and Input."
+        )
         if init_msg_content is None:
             init_msg_content = default_init_msg_content
+
         # Initialize a message sent by the assistant
         init_msg = BaseMessage.make_assistant_message(
-            role_name=self.assistant_sys_msg.role_name,
+            role_name=getattr(self.assistant_sys_msg, 'role_name', None)
+            or "assistant",
             content=init_msg_content,
         )
 
@@ -463,23 +495,57 @@ class RolePlaying:
         """
         user_response = self.user_agent.step(assistant_msg)
         if user_response.terminated or user_response.msgs is None:
-            return (ChatAgentResponse([], False, {}),
-                    ChatAgentResponse([], user_response.terminated,
-                                      user_response.info))
+            return (
+                ChatAgentResponse(msgs=[], terminated=False, info={}),
+                ChatAgentResponse(
+                    msgs=[],
+                    terminated=user_response.terminated,
+                    info=user_response.info,
+                ),
+            )
         user_msg = self._reduce_message_options(user_response.msgs)
-        self.user_agent.record_message(user_msg)
+
+        # To prevent recording the same memory more than once (once in chat
+        # step and once in role play), and the model generates only one
+        # response when multi-response support is enabled.
+        if (
+            'n' in self.user_agent.model_backend.model_config_dict.keys()
+            and self.user_agent.model_backend.model_config_dict['n'] > 1
+        ):
+            self.user_agent.record_message(user_msg)
 
         assistant_response = self.assistant_agent.step(user_msg)
         if assistant_response.terminated or assistant_response.msgs is None:
-            return (ChatAgentResponse([], assistant_response.terminated,
-                                      assistant_response.info),
-                    ChatAgentResponse([user_msg], False, user_response.info))
+            return (
+                ChatAgentResponse(
+                    msgs=[],
+                    terminated=assistant_response.terminated,
+                    info=assistant_response.info,
+                ),
+                ChatAgentResponse(
+                    msgs=[user_msg], terminated=False, info=user_response.info
+                ),
+            )
         assistant_msg = self._reduce_message_options(assistant_response.msgs)
-        self.assistant_agent.record_message(assistant_msg)
+
+        # To prevent recording the same memory more than once (once in chat
+        # step and once in role play), and the model generates only one
+        # response when multi-response support is enabled.
+        if (
+            'n' in self.assistant_agent.model_backend.model_config_dict.keys()
+            and self.assistant_agent.model_backend.model_config_dict['n'] > 1
+        ):
+            self.assistant_agent.record_message(assistant_msg)
 
         return (
-            ChatAgentResponse([assistant_msg], assistant_response.terminated,
-                              assistant_response.info),
-            ChatAgentResponse([user_msg], user_response.terminated,
-                              user_response.info),
+            ChatAgentResponse(
+                msgs=[assistant_msg],
+                terminated=assistant_response.terminated,
+                info=assistant_response.info,
+            ),
+            ChatAgentResponse(
+                msgs=[user_msg],
+                terminated=user_response.terminated,
+                info=user_response.info,
+            ),
         )

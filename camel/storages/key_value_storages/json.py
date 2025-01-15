@@ -1,30 +1,37 @@
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
-# Licensed under the Apache License, Version 2.0 (the “License”);
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 
 import json
+from enum import EnumMeta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional
 
 from camel.storages.key_value_storages import BaseKeyValueStorage
-from camel.types import ModelType, OpenAIBackendRole, RoleType, TaskType
+from camel.types import (
+    ModelType,
+    OpenAIBackendRole,
+    RoleType,
+    TaskType,
+)
 
 
 class _CamelJSONEncoder(json.JSONEncoder):
     r"""A custom JSON encoder for serializing specifically enumerated types.
     Ensures enumerated types can be stored in and retrieved from JSON format.
     """
-    CAMEL_ENUMS = {
+
+    CAMEL_ENUMS: ClassVar[Dict[str, EnumMeta]] = {
         "RoleType": RoleType,
         "TaskType": TaskType,
         "ModelType": ModelType,
@@ -68,7 +75,8 @@ class JsonStorage(BaseKeyValueStorage):
         """
         with self.json_path.open("a") as f:
             f.writelines(
-                [json.dumps(r, cls=_CamelJSONEncoder) + "\n" for r in records])
+                [json.dumps(r, cls=_CamelJSONEncoder) + "\n" for r in records]
+            )
 
     def load(self) -> List[Dict[str, Any]]:
         r"""Loads all stored records from the key-value storage system.
@@ -84,7 +92,6 @@ class JsonStorage(BaseKeyValueStorage):
             ]
 
     def clear(self) -> None:
-        r"""Removes all records from the key-value storage system.
-        """
+        r"""Removes all records from the key-value storage system."""
         with self.json_path.open("w"):
             pass

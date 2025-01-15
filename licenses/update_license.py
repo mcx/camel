@@ -1,16 +1,16 @@
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
-# Licensed under the Apache License, Version 2.0 (the “License”);
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 import os
 import re
 import sys
@@ -39,21 +39,27 @@ def update_license_in_file(
     start_line_start_with: str,
     end_line_start_with: str,
 ) -> bool:
-    with open(file_path, 'r') as f:
+    with open(
+        file_path, 'r', encoding='utf-8'
+    ) as f:  # for windows compatibility
         content = f.read()
 
-    with open(license_template_path, 'r') as f:
+    with open(license_template_path, 'r', encoding='utf-8') as f:
         new_license = f.read().strip()
 
-    maybe_existing_licenses = re.findall(r'^#.*?(?=\n)', content,
-                                         re.MULTILINE | re.DOTALL)
-    start_index = fine_license_start_line(maybe_existing_licenses,
-                                          start_line_start_with)
-    end_index = find_license_end_line(maybe_existing_licenses,
-                                      end_line_start_with)
+    maybe_existing_licenses = re.findall(
+        r'^#.*?(?=\n)', content, re.MULTILINE | re.DOTALL
+    )
+    start_index = fine_license_start_line(
+        maybe_existing_licenses, start_line_start_with
+    )
+    end_index = find_license_end_line(
+        maybe_existing_licenses, end_line_start_with
+    )
     if start_index is not None and end_index is not None:
         maybe_existing_licenses = maybe_existing_licenses[
-            start_index:end_index + 1]
+            start_index : end_index + 1
+        ]
     else:
         maybe_existing_licenses = None
     if maybe_existing_licenses:
@@ -93,10 +99,10 @@ def update_license_in_directory(
         if any(part.startswith('.') for part in py_files.parts):
             continue
         if update_license_in_file(
-                py_files,
-                license_template_path,
-                start_line_start_with,
-                end_line_start_with,
+            py_files,
+            license_template_path,
+            start_line_start_with,
+            end_line_start_with,
         ):
             file_count += 1
 
@@ -108,15 +114,16 @@ if __name__ == '__main__':
         print(
             "Usage from command line: "
             "python update_license.py <directory_path> <license_template_path>"
-            "No valid input arguments found, please enter manually.")
+            "No valid input arguments found, please enter manually."
+        )
         directory_path = input("Enter directory path: ")
         license_template_path = input("Enter license template path: ")
     else:
         directory_path = sys.argv[1]
         license_template_path = sys.argv[2]
 
-    start_line_start_with = "# =========== Copyright"
-    end_line_start_with = "# =========== Copyright"
+    start_line_start_with = "# ========= Copyright"
+    end_line_start_with = "# ========= Copyright"
     update_license_in_directory(
         directory_path,
         license_template_path,

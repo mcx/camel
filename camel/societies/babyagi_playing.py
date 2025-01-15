@@ -1,16 +1,16 @@
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
-# Licensed under the Apache License, Version 2.0 (the “License”);
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 from collections import deque
 from typing import Dict, List, Optional
 
@@ -22,9 +22,12 @@ from camel.agents import (
 )
 from camel.agents.chat_agent import ChatAgentResponse
 from camel.generators import SystemMessageGenerator
+from camel.logger import get_logger
 from camel.messages import BaseMessage
 from camel.prompts import TextPrompt
 from camel.types import RoleType, TaskType
+
+logger = get_logger(__name__)
 
 
 class BabyAGI:
@@ -80,13 +83,17 @@ class BabyAGI:
         self.task_type = task_type
         self.task_prompt = task_prompt
         self.specified_task_prompt: TextPrompt
-        self.init_specified_task_prompt(assistant_role_name, user_role_name,
-                                        task_specify_agent_kwargs,
-                                        extend_task_specify_meta_dict,
-                                        output_language)
+        self.init_specified_task_prompt(
+            assistant_role_name,
+            user_role_name,
+            task_specify_agent_kwargs,
+            extend_task_specify_meta_dict,
+            output_language,
+        )
 
         sys_msg_generator = SystemMessageGenerator(
-            task_type=self.task_type, **(sys_msg_generator_kwargs or {}))
+            task_type=self.task_type, **(sys_msg_generator_kwargs or {})
+        )
 
         init_assistant_sys_msg = sys_msg_generator.from_dicts(
             meta_dicts=[
@@ -102,23 +109,30 @@ class BabyAGI:
         )
 
         self.assistant_agent: ChatAgent
-        self.assistant_sys_msg: BaseMessage
+        self.assistant_sys_msg: Optional[BaseMessage]
         self.task_creation_agent: TaskCreationAgent
         self.task_prioritization_agent: TaskPrioritizationAgent
-        self.init_agents(init_assistant_sys_msg[0], assistant_agent_kwargs,
-                         task_creation_agent_kwargs,
-                         task_prioritization_agent_kwargs, output_language,
-                         message_window_size)
+        self.init_agents(
+            init_assistant_sys_msg[0],
+            assistant_agent_kwargs,
+            task_creation_agent_kwargs,
+            task_prioritization_agent_kwargs,
+            output_language,
+            message_window_size,
+        )
 
         self.subtasks: deque = deque([])
         self.solved_subtasks: List[str] = []
         self.MAX_TASK_HISTORY = max_task_history
 
     def init_specified_task_prompt(
-            self, assistant_role_name: str, user_role_name: str,
-            task_specify_agent_kwargs: Optional[Dict],
-            extend_task_specify_meta_dict: Optional[Dict],
-            output_language: Optional[str]):
+        self,
+        assistant_role_name: str,
+        user_role_name: str,
+        task_specify_agent_kwargs: Optional[Dict],
+        extend_task_specify_meta_dict: Optional[Dict],
+        output_language: Optional[str],
+    ):
         r"""Use a task specify agent to generate a specified task prompt.
         Generated specified task prompt will be used to replace original
         task prompt. If there is no task specify agent, specified task
@@ -138,8 +152,11 @@ class BabyAGI:
         task_specify_meta_dict = dict()
         if self.task_type in [TaskType.AI_SOCIETY, TaskType.MISALIGNMENT]:
             task_specify_meta_dict.update(
-                dict(assistant_role=assistant_role_name,
-                     user_role=user_role_name))
+                dict(
+                    assistant_role=assistant_role_name,
+                    user_role=user_role_name,
+                )
+            )
         task_specify_meta_dict.update(extend_task_specify_meta_dict or {})
         task_specify_agent = TaskSpecifyAgent(
             task_type=self.task_type,
@@ -151,12 +168,15 @@ class BabyAGI:
             meta_dict=task_specify_meta_dict,
         )
 
-    def init_agents(self, init_assistant_sys_msg: BaseMessage,
-                    assistant_agent_kwargs: Optional[Dict],
-                    task_creation_agent_kwargs: Optional[Dict],
-                    task_prioritization_agent_kwargs: Optional[Dict],
-                    output_language: Optional[str],
-                    message_window_size: Optional[int] = None):
+    def init_agents(
+        self,
+        init_assistant_sys_msg: BaseMessage,
+        assistant_agent_kwargs: Optional[Dict],
+        task_creation_agent_kwargs: Optional[Dict],
+        task_prioritization_agent_kwargs: Optional[Dict],
+        output_language: Optional[str],
+        message_window_size: Optional[int] = None,
+    ):
         r"""Initialize assistant and user agents with their system messages.
 
         Args:
@@ -185,7 +205,8 @@ class BabyAGI:
 
         self.task_creation_agent = TaskCreationAgent(
             objective=self.specified_task_prompt,
-            role_name=self.assistant_sys_msg.role_name,
+            role_name=getattr(self.assistant_sys_msg, 'role_name', None)
+            or "assistant",
             output_language=output_language,
             message_window_size=message_window_size,
             **(task_creation_agent_kwargs or {}),
@@ -215,40 +236,49 @@ class BabyAGI:
         if not self.subtasks:
             new_subtask_list = self.task_creation_agent.run(task_list=[])
             prioritized_subtask_list = self.task_prioritization_agent.run(
-                new_subtask_list)
+                new_subtask_list
+            )
             self.subtasks = deque(prioritized_subtask_list)
 
         task_name = self.subtasks.popleft()
         assistant_msg_msg = BaseMessage.make_user_message(
-            role_name=self.assistant_sys_msg.role_name, content=f"{task_name}")
+            role_name=getattr(self.assistant_sys_msg, 'role_name', None)
+            or "assistant",
+            content=f"{task_name}",
+        )
 
         assistant_response = self.assistant_agent.step(assistant_msg_msg)
         assistant_msg = assistant_response.msgs[0]
-        self.assistant_agent.record_message(assistant_msg)
-        self.task_creation_agent.record_message(assistant_msg)
-        self.task_prioritization_agent.record_message(assistant_msg)
 
         self.solved_subtasks.append(task_name)
         past_tasks = self.solved_subtasks + list(self.subtasks)
 
         new_subtask_list = self.task_creation_agent.run(
-            task_list=past_tasks[-self.MAX_TASK_HISTORY:])
+            task_list=past_tasks[-self.MAX_TASK_HISTORY :]
+        )
 
         if new_subtask_list:
             self.subtasks.extend(new_subtask_list)
             prioritized_subtask_list = self.task_prioritization_agent.run(
-                task_list=list(self.subtasks)[-self.MAX_TASK_HISTORY:])
+                task_list=list(self.subtasks)[-self.MAX_TASK_HISTORY :]
+            )
             self.subtasks = deque(prioritized_subtask_list)
         else:
-            print("no new tasks")
+            logger.info("no new tasks")
         assistant_response.info['task_name'] = task_name
         assistant_response.info['subtasks'] = list(self.subtasks)
         if not self.subtasks:
             terminated = True
-            assistant_response.info[
-                'termination_reasons'] = "All tasks are solved"
-            return ChatAgentResponse([assistant_msg], terminated,
-                                     assistant_response.info)
-        return ChatAgentResponse([assistant_msg],
-                                 assistant_response.terminated,
-                                 assistant_response.info)
+            assistant_response.info['termination_reasons'] = (
+                "All tasks are solved"
+            )
+            return ChatAgentResponse(
+                msgs=[assistant_msg],
+                terminated=terminated,
+                info=assistant_response.info,
+            )
+        return ChatAgentResponse(
+            msgs=[assistant_msg],
+            terminated=assistant_response.terminated,
+            info=assistant_response.info,
+        )

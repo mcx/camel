@@ -1,16 +1,16 @@
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
-# Licensed under the Apache License, Version 2.0 (the “License”);
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 
 import shutil
 import tempfile
@@ -36,13 +36,12 @@ def storage(request):
     params = request.param.split(":")
     if params[0] == "qdrant":
         if params[1] == "built-in":
-            yield QdrantStorage(vector_dim=4, create_collection=True)
+            yield QdrantStorage(vector_dim=4)
         elif params[1] == "local":
             tmpdir = tempfile.mkdtemp()
             yield QdrantStorage(
                 vector_dim=4,
                 path=tmpdir,
-                create_collection=True,
             )
             shutil.rmtree(tmpdir)
 

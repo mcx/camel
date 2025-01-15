@@ -1,20 +1,21 @@
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
-# Licensed under the Apache License, Version 2.0 (the “License”);
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 import warnings
 from typing import Any, Optional
 
-from camel.prompts import TaskPromptTemplateDict, TextPrompt
+from camel.prompts.base import TextPrompt
+from camel.prompts.task_prompt_template import TaskPromptTemplateDict
 from camel.types import RoleType, TaskType
 
 
@@ -31,8 +32,9 @@ class PromptTemplateGenerator:
         self,
         task_prompt_template_dict: Optional[TaskPromptTemplateDict] = None,
     ) -> None:
-        self.task_prompt_template_dict = (task_prompt_template_dict
-                                          or TaskPromptTemplateDict())
+        self.task_prompt_template_dict = (
+            task_prompt_template_dict or TaskPromptTemplateDict()
+        )
 
     def get_prompt_from_key(self, task_type: TaskType, key: Any) -> TextPrompt:
         r"""Generates a text prompt using the specified :obj:`task_type` and
@@ -53,8 +55,10 @@ class PromptTemplateGenerator:
             return self.task_prompt_template_dict[task_type][key]
 
         except KeyError:
-            raise KeyError("Failed to get generate prompt template for "
-                           f"task: {task_type.value} from key: {key}.")
+            raise KeyError(
+                "Failed to get generate prompt template for "
+                f"task: {task_type.value} from key: {key}."
+            )
 
     def get_system_prompt(
         self,
@@ -82,9 +86,11 @@ class PromptTemplateGenerator:
         except KeyError:
             prompt = "You are a helpful assistant."
 
-            warnings.warn("Failed to get system prompt template for "
-                          f"task: {task_type.value}, role: {role_type.value}. "
-                          f"Set template to: {prompt}")
+            warnings.warn(
+                "Failed to get system prompt template for "
+                f"task: {task_type.value}, role: {role_type.value}. "
+                f"Set template to: {prompt}"
+            )
 
         return TextPrompt(prompt)
 

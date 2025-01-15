@@ -1,16 +1,16 @@
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
-# Licensed under the Apache License, Version 2.0 (the “License”);
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
+# ========= Copyright 2023-2024 @ CAMEL-AI.org. All Rights Reserved. =========
 from typing import Any, Dict, Sequence
 
 from colorama import Fore
@@ -39,8 +39,11 @@ class Human:
             displayed to the user.
     """
 
-    def __init__(self, name: str = "Kill Switch Engineer",
-                 logger_color: Any = Fore.MAGENTA) -> None:
+    def __init__(
+        self,
+        name: str = "Kill Switch Engineer",
+        logger_color: Any = Fore.MAGENTA,
+    ) -> None:
         self.name = name
         self.logger_color = logger_color
         self.input_button = f"Input by {self.name}."
@@ -62,11 +65,13 @@ class Human:
         print_text_animated(
             self.logger_color + "\n> Proposals from "
             f"{messages[0].role_name} ({messages[0].role_type}). "
-            "Please choose an option:\n")
+            "Please choose an option:\n"
+        )
         for index, option in enumerate(options):
             print_text_animated(
-                self.logger_color +
-                f"\x1b[3mOption {index + 1}:\n{option}\x1b[0m\n")
+                self.logger_color
+                + f"\x1b[3mOption {index + 1}:\n{option}\x1b[0m\n"
+            )
             self.options_dict[str(index + 1)] = option
 
     def get_input(self) -> str:
@@ -77,13 +82,15 @@ class Human:
         """
         while True:
             human_input = input(
-                self.logger_color +
-                f"Please enter your choice ([1-{len(self.options_dict)}]): ")
+                self.logger_color
+                + f"Please enter your choice ([1-{len(self.options_dict)}]): "
+            )
             print("\n")
             if human_input in self.options_dict:
                 break
-            print_text_animated(self.logger_color +
-                                "\n> Invalid choice. Please try again.\n")
+            print_text_animated(
+                self.logger_color + "\n> Invalid choice. Please try again.\n"
+            )
 
         return human_input
 
@@ -105,8 +112,9 @@ class Human:
 
         return content
 
-    def reduce_step(self,
-                    messages: Sequence[BaseMessage]) -> ChatAgentResponse:
+    def reduce_step(
+        self, messages: Sequence[BaseMessage]
+    ) -> ChatAgentResponse:
         r"""Performs one step of the conversation by displaying options to the
         user, getting their input, and parsing their choice.
 
@@ -127,4 +135,4 @@ class Human:
         human_input = self.get_input()
         content = self.parse_input(human_input)
         message = meta_chat_message.create_new_instance(content)
-        return ChatAgentResponse([message], terminated=False, info={})
+        return ChatAgentResponse(msgs=[message], terminated=False, info={})
