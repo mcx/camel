@@ -15,7 +15,10 @@ import os
 from enum import Enum, EnumMeta
 from typing import cast
 
+from camel.logger import get_logger
 from camel.types.unified_model_type import UnifiedModelType
+
+logger = get_logger(__name__)
 
 
 class RoleType(Enum):
@@ -105,6 +108,7 @@ class ModelType(UnifiedModelType, Enum):
     TOGETHER_LLAMA_4_SCOUT = "meta-llama/Llama-4-Scout-17B-16E-Instruct"
 
     # PPIO platform models support tool calling
+    PPIO_DEEPSEEK_PROVER_V2_671B = "deepseek/deepseek-prover-v2-671b"
     PPIO_DEEPSEEK_R1_TURBO = "deepseek/deepseek-r1-turbo"
     PPIO_DEEPSEEK_V3_TURBO = "deepseek/deepseek-v3-turbo"
     PPIO_DEEPSEEK_R1_COMMUNITY = "deepseek/deepseek-r1/community"
@@ -176,10 +180,13 @@ class ModelType(UnifiedModelType, Enum):
     NVIDIA_LLAMA3_3_70B_INSTRUCT = "meta/llama-3.3-70b-instruct"
 
     # Gemini models
-    GEMINI_2_5_PRO_EXP = "gemini-2.5-pro-exp-03-25"
-    GEMINI_2_0_FLASH = "gemini-2.0-flash-exp"
+    GEMINI_2_5_FLASH_PREVIEW = "gemini-2.5-flash-preview-04-17"
+    GEMINI_2_5_PRO_PREVIEW = "gemini-2.5-pro-preview-05-06"
+    GEMINI_2_0_FLASH = "gemini-2.0-flash"
+    GEMINI_2_0_FLASH_EXP = "gemini-2.0-flash-exp"
     GEMINI_2_0_FLASH_THINKING = "gemini-2.0-flash-thinking-exp"
     GEMINI_2_0_PRO_EXP = "gemini-2.0-pro-exp-02-05"
+    GEMINI_2_0_FLASH_LITE = "gemini-2.0-flash-lite"
     GEMINI_2_0_FLASH_LITE_PREVIEW = "gemini-2.0-flash-lite-preview-02-05"
     GEMINI_1_5_FLASH = "gemini-1.5-flash"
     GEMINI_1_5_PRO = "gemini-1.5-pro"
@@ -195,6 +202,7 @@ class ModelType(UnifiedModelType, Enum):
     MISTRAL_MIXTRAL_8x22B = "open-mixtral-8x22b"
     MISTRAL_NEMO = "open-mistral-nemo"
     MISTRAL_PIXTRAL_12B = "pixtral-12b-2409"
+    MISTRAL_MEDIUM_3 = "mistral-medium-latest"
 
     # Reka models
     REKA_CORE = "reka-core"
@@ -474,6 +482,16 @@ class ModelType(UnifiedModelType, Enum):
             ModelType.GPT_4_TURBO,
             ModelType.GPT_4O,
             ModelType.GPT_4O_MINI,
+            ModelType.O1,
+            ModelType.O1_PREVIEW,
+            ModelType.O1_MINI,
+            ModelType.O3_MINI,
+            ModelType.GPT_4_5_PREVIEW,
+            ModelType.GPT_4_1,
+            ModelType.GPT_4_1_MINI,
+            ModelType.GPT_4_1_NANO,
+            ModelType.O4_MINI,
+            ModelType.O3,
         }
 
     @property
@@ -585,6 +603,7 @@ class ModelType(UnifiedModelType, Enum):
             ModelType.MISTRAL_PIXTRAL_12B,
             ModelType.MISTRAL_8B,
             ModelType.MISTRAL_3B,
+            ModelType.MISTRAL_MEDIUM_3,
         }
 
     @property
@@ -613,13 +632,16 @@ class ModelType(UnifiedModelType, Enum):
             bool: Whether this type of models is gemini.
         """
         return self in {
-            ModelType.GEMINI_2_5_PRO_EXP,
+            ModelType.GEMINI_2_5_FLASH_PREVIEW,
+            ModelType.GEMINI_2_5_PRO_PREVIEW,
             ModelType.GEMINI_2_0_FLASH,
-            ModelType.GEMINI_1_5_FLASH,
-            ModelType.GEMINI_1_5_PRO,
+            ModelType.GEMINI_2_0_FLASH_EXP,
             ModelType.GEMINI_2_0_FLASH_THINKING,
             ModelType.GEMINI_2_0_PRO_EXP,
+            ModelType.GEMINI_2_0_FLASH_LITE,
             ModelType.GEMINI_2_0_FLASH_LITE_PREVIEW,
+            ModelType.GEMINI_1_5_FLASH,
+            ModelType.GEMINI_1_5_PRO,
         }
 
     @property
@@ -716,6 +738,7 @@ class ModelType(UnifiedModelType, Enum):
     @property
     def is_ppio(self) -> bool:
         return self in {
+            ModelType.PPIO_DEEPSEEK_PROVER_V2_671B,
             ModelType.PPIO_DEEPSEEK_R1_TURBO,
             ModelType.PPIO_DEEPSEEK_V3_TURBO,
             ModelType.PPIO_DEEPSEEK_R1_COMMUNITY,
@@ -928,6 +951,7 @@ class ModelType(UnifiedModelType, Enum):
         }:
             return 14_336
         elif self in {
+            ModelType.PPIO_DEEPSEEK_PROVER_V2_671B,
             ModelType.NOVITA_DOLPHIN_MIXTRAL_8X22B,
         }:
             return 16_000
@@ -1091,6 +1115,7 @@ class ModelType(UnifiedModelType, Enum):
             ModelType.NETMIND_DEEPSEEK_R1,
             ModelType.NETMIND_DEEPSEEK_V3,
             ModelType.NOVITA_DEEPSEEK_V3_0324,
+            ModelType.MISTRAL_MEDIUM_3,
         }:
             return 128_000
         elif self in {
@@ -1162,12 +1187,15 @@ class ModelType(UnifiedModelType, Enum):
         }:
             return 512_000
         elif self in {
-            ModelType.GEMINI_2_5_PRO_EXP,
+            ModelType.GEMINI_2_5_FLASH_PREVIEW,
+            ModelType.GEMINI_2_5_PRO_PREVIEW,
             ModelType.GEMINI_2_0_FLASH,
+            ModelType.GEMINI_2_0_FLASH_EXP,
+            ModelType.GEMINI_2_0_FLASH_THINKING,
+            ModelType.GEMINI_2_0_FLASH_LITE,
+            ModelType.GEMINI_2_0_FLASH_LITE_PREVIEW,
             ModelType.GEMINI_1_5_FLASH,
             ModelType.GEMINI_1_5_PRO,
-            ModelType.GEMINI_2_0_FLASH_THINKING,
-            ModelType.GEMINI_2_0_FLASH_LITE_PREVIEW,
             ModelType.GEMINI_2_0_PRO_EXP,  # Not given in doc, assume the same
             ModelType.GLM_4_LONG,
             ModelType.TOGETHER_LLAMA_4_MAVERICK,
@@ -1184,7 +1212,11 @@ class ModelType(UnifiedModelType, Enum):
         }:
             return 10_000_000
         else:
-            raise ValueError("Unknown model type")
+            logger.warning(
+                f"Unknown model type {self}, set maximum token limit "
+                f"to 999_999_999"
+            )
+            return 999_999_999
 
 
 class EmbeddingModelType(Enum):
@@ -1198,6 +1230,8 @@ class EmbeddingModelType(Enum):
     JINA_EMBEDDINGS_V2_BASE_CODE = "jina-embeddings-v2-base-code"
 
     MISTRAL_EMBED = "mistral-embed"
+
+    GEMINI_EMBEDDING_EXP = "gemini-embedding-exp-03-07"
 
     @property
     def is_openai(self) -> bool:
@@ -1228,6 +1262,13 @@ class EmbeddingModelType(Enum):
         }
 
     @property
+    def is_gemini(self) -> bool:
+        r"""Returns whether this type of models is an Gemini-released model."""
+        return self in {
+            EmbeddingModelType.GEMINI_EMBEDDING_EXP,
+        }
+
+    @property
     def output_dim(self) -> int:
         if self in {
             EmbeddingModelType.JINA_COLBERT_V2,
@@ -1250,8 +1291,27 @@ class EmbeddingModelType(Enum):
             return 3072
         elif self is EmbeddingModelType.MISTRAL_EMBED:
             return 1024
+        elif self is EmbeddingModelType.GEMINI_EMBEDDING_EXP:
+            return 3072
         else:
             raise ValueError(f"Unknown model type {self}.")
+
+
+class GeminiEmbeddingTaskType(str, Enum):
+    r"""Task types for Gemini embedding models.
+
+    For more information, please refer to:
+    https://ai.google.dev/gemini-api/docs/embeddings#task-types
+    """
+
+    SEMANTIC_SIMILARITY = "SEMANTIC_SIMILARITY"
+    CLASSIFICATION = "CLASSIFICATION"
+    CLUSTERING = "CLUSTERING"
+    RETRIEVAL_DOCUMENT = "RETRIEVAL_DOCUMENT"
+    RETRIEVAL_QUERY = "RETRIEVAL_QUERY"
+    QUESTION_ANSWERING = "QUESTION_ANSWERING"
+    FACT_VERIFICATION = "FACT_VERIFICATION"
+    CODE_RETRIEVAL_QUERY = "CODE_RETRIEVAL_QUERY"
 
 
 class TaskType(Enum):
@@ -1358,6 +1418,7 @@ class ModelPlatformType(Enum):
     MISTRAL = "mistral"
     REKA = "reka"
     TOGETHER = "together"
+    STUB = "stub"
     OPENAI_COMPATIBLE_MODEL = "openai-compatible-model"
     SAMBA = "samba-nova"
     COHERE = "cohere"
@@ -1545,6 +1606,11 @@ class ModelPlatformType(Enum):
     def is_novita(self) -> bool:
         r"""Returns whether this platform is Novita."""
         return self is ModelPlatformType.NOVITA
+
+    @property
+    def is_watsonx(self) -> bool:
+        r"""Returns whether this platform is WatsonX."""
+        return self is ModelPlatformType.WATSONX
 
 
 class AudioModelType(Enum):
